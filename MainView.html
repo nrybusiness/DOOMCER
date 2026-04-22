@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html style="height:100%; margin:0; padding:0; background:#000;">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>DOOMCER // TERMINAL</title>
+  <style>
+    /* ========== RESET MONOCROMO ========== */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0 !important; padding: 0 !important; width: 100% !important;
+      min-height: 100vh !important; background: #000 !important; color: #fff;
+      font-family: 'Courier New', 'IBM Plex Mono', 'Space Mono', monospace;
+      font-size: 12px; line-height: 1.3; text-transform: uppercase;
+      letter-spacing: 0.5px; display: flex; flex-direction: column;
+      -webkit-font-smoothing: none;
+    }
+    body::before {
+      content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.8) 0px, rgba(255,255,255,0.02) 2px, transparent 3px);
+      pointer-events: none; z-index: 9998; opacity: 0.4; mix-blend-mode: screen;
+    }
+    body::after {
+      content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="1"/></filter><rect width="100" height="100" filter="url(%23noise)" opacity="0.25"/></svg>');
+      background-size: 200px 200px; pointer-events: none; z-index: 9999; opacity: 0.6;
+      animation: grain 0.1s steps(2) infinite;
+    }
+    @keyframes grain { 0% { background-position: 0 0; } 100% { background-position: 100% 100%; } }
+    .app-wrapper {
+      max-width: 1000px; margin: 0 auto; padding: 16px 12px; width: 100%;
+      box-sizing: border-box; position: relative; z-index: 10; flex: 1;
+    }
+    .corrupt-card {
+      background: #0a0a0a; border: 1px solid #444; padding: 16px 14px; margin-bottom: 16px;
+    }
+    h1, h2, h3, h4 { font-weight: 400; margin: 0 0 8px 0; letter-spacing: 2px; color: #fff; }
+    h1 { font-size: 24px; border-bottom: 1px solid #555; padding-bottom: 4px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 14px; color: #aaa; }
+    #waveform {
+      width: 100%; height: 80px; background: #000; border: 1px solid #555;
+      margin: 10px 0; display: block;
+    }
+    .player-controls { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+    .btn {
+      background: transparent; border: 1px solid #888; color: #ddd;
+      padding: 8px 16px; font-family: inherit; font-size: 12px; text-transform: uppercase;
+      letter-spacing: 1px; cursor: pointer; transition: all 0.05s;
+    }
+    .btn:hover {
+      background: #222; border-color: #fff; color: #fff;
+      animation: textScramble 0.1s steps(2) 3;
+    }
+    .btn:disabled { opacity: 0.4; border-color: #444; color: #666; pointer-events: none; }
+    @keyframes textScramble {
+      0% { opacity: 1; letter-spacing: 1px; }
+      50% { opacity: 0.5; letter-spacing: 3px; text-shadow: 1px 0 #fff; }
+    }
+    .progress-container { flex: 1; height: 8px; background: #111; border: 1px solid #444; cursor: pointer; }
+    .progress-bar { height: 100%; width: 0%; background: #fff; }
+    .license-option { padding: 10px; border: 1px solid #444; margin-bottom: 6px; cursor: pointer; }
+    .license-option.selected { border: 1px solid #fff; background: #1a1a1a; }
+    .related-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 640px) { .related-grid { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 900px) { .related-grid { grid-template-columns: 1fr 1fr 1fr; } }
+    .track-thumb {
+      background: #0a0a0a; border: 1px solid #444; padding: 14px;
+      cursor: pointer; transition: 0.05s;
+    }
+    .track-thumb:hover { border-color: #fff; background: #151515; }
+    .empty-state { text-align: center; padding: 30px; color: #555; border: 1px dashed #444; }
+    .footer {
+      text-align: center; padding: 20px 0 10px; font-size: 9px; color: #444;
+      border-top: 1px solid #333; margin-top: 20px;
+    }
+    .footer a { color: #777; text-decoration: none; }
+    .terminal-log { color: #aaa; }
+    .debug-panel {
+      background: #111; border: 1px dashed #555; padding: 8px; margin-bottom: 12px;
+      font-size: 10px; color: #0f0; display: flex; justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+  <h1>DOOMCER // <span class="terminal-log">[SYS.CORRUPTED]</span></h1>
+
+  <!-- Panel de diagnóstico -->
+  <div class="debug-panel">
+    <span id="debugStatus">[BOOT] Iniciando...</span>
+    <button id="debugRefreshBtn" style="background:none; border:1px solid #0f0; color:#0f0; padding:2px 6px; font-size:10px; cursor:pointer;">⟲ RELOAD</button>
+  </div>
+
+  <!-- PLAYER -->
+  <div class="corrupt-card">
+    <div style="display:flex; justify-content:space-between;">
+      <h2 id="track-title">[ NO SIGNAL ]</h2>
+      <span id="track-bpm"></span>
+    </div>
+    <div style="color:#888; margin:4px 0;">
+      <span id="track-genre"></span> // <span id="track-date"></span>
+    </div>
+    <canvas id="waveform" width="600" height="80"></canvas>
+    <div class="player-controls">
+      <button id="playPauseBtn" class="btn" disabled>▶</button>
+      <div id="progressContainer" class="progress-container">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <span id="timeDisplay">00:00</span>
+    </div>
+    <audio id="audioPlayer" preload="metadata"></audio>
+    <div style="display:grid; grid-template-columns:1fr 2fr; gap:4px; margin-top:10px; font-size:11px;">
+      <span>BPM:</span><span id="detailBpm">--</span>
+      <span>GENRE:</span><span id="detailGenre">--</span>
+      <span>TAGS:</span><span id="detailTags">--</span>
+      <span>LIKES:</span><span id="detailLikes">0</span>
+    </div>
+  </div>
+
+  <!-- LICENCIAS -->
+  <div class="corrupt-card">
+    <h3>[ LICENSE ]</h3>
+    <div id="licenseOptions"></div>
+    <button id="buyNowBtn" class="btn" style="width:100%; margin-top:8px;" disabled>▶ [EXECUTE PURCHASE]</button>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button id="likeBtn" class="btn" style="flex:1;" disabled>♥ LIKE</button>
+      <button id="shareBtn" class="btn" style="flex:1;" disabled>↗ SHARE</button>
+    </div>
+  </div>
+
+  <!-- RELACIONADOS -->
+  <h3 style="margin-top:20px;">// [RELATED_LEAKS]</h3>
+  <div id="relatedTracksContainer" class="related-grid">
+    <div class="empty-state">[DECRYPTING_DATA...]</div>
+  </div>
+
+  <div class="footer">
+    [OS PROVIDER] <a href="https://rakontech.vercel.app" target="_blank">RAKON TECHNOLOGY</a> // v3.0 MONO
+  </div>
+</div>
+
+<script>
+  window.RAKON_WEBAPP_URL = '<?= webAppUrl ?>';
+  console.log('[BOOT] RAKON_WEBAPP_URL:', window.RAKON_WEBAPP_URL);
+  
+  let currentBeat = null, beatsList = [], audioPlayer = document.getElementById('audioPlayer'), isPlaying = false, selectedLicense = null;
+  let animationFrame, waveformCtx, canvasWidth, canvasHeight;
+
+  const playBtn = document.getElementById('playPauseBtn');
+  const buyBtn = document.getElementById('buyNowBtn');
+  const likeBtn = document.getElementById('likeBtn');
+  const shareBtn = document.getElementById('shareBtn');
+  const debugStatus = document.getElementById('debugStatus');
+  const debugRefreshBtn = document.getElementById('debugRefreshBtn');
+
+  const esc = (t) => String(t||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  function setDebug(msg, isError = false) {
+    debugStatus.innerHTML = msg;
+    debugStatus.style.color = isError ? '#f00' : '#0f0';
+  }
+  setDebug(`[URL] ${window.RAKON_WEBAPP_URL ? 'OK' : 'MISSING'}`);
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const canvas = document.getElementById('waveform');
+    waveformCtx = canvas.getContext('2d');
+    canvasWidth = canvas.width; canvasHeight = canvas.height;
+    await loadBeats();
+    startOscilloscope();
+  });
+
+  function startOscilloscope() {
+    const ctx = waveformCtx;
+    function draw() {
+      ctx.fillStyle = '#000'; ctx.fillRect(0,0,canvasWidth,canvasHeight);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.shadowBlur = 8; ctx.shadowColor = '#fff';
+      let amp = (audioPlayer && !audioPlayer.paused) ? 0.5 : 0.2;
+      const time = Date.now()/150, mid = canvasHeight/2;
+      ctx.beginPath();
+      for (let x=0; x<canvasWidth; x+=2) {
+        let y = mid + Math.sin(x*0.02+time)*12*amp + Math.sin(x*0.05+time*0.7)*5*amp + (Math.random()-0.5)*8*amp;
+        y = Math.max(2, Math.min(canvasHeight-2, y));
+        x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 4; ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x=0; x<canvasWidth; x+=3) {
+        let y = mid + Math.cos(x*0.03+time*0.5)*7*amp + (Math.random()-0.5)*5*amp;
+        y = Math.max(2, Math.min(canvasHeight-2, y));
+        x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      animationFrame = requestAnimationFrame(draw);
+    }
+    animationFrame = requestAnimationFrame(draw);
+  }
+
+  async function loadBeats() {
+    setDebug('[FETCH] Iniciando...');
+    console.log('[loadBeats] Inicio');
+    
+    if (!window.RAKON_WEBAPP_URL) {
+      setDebug('[ERROR] RAKON_WEBAPP_URL no definida', true);
+      console.error('[loadBeats] URL no definida');
+      beatsList = [];
+      renderRelated();
+      document.getElementById('track-title').textContent = '[URL ERROR]';
+      enableControls(false);
+      return;
+    }
+
+    const url = window.RAKON_WEBAPP_URL + '?app=api&action=getBeats';
+    setDebug(`[FETCH] ${url}`);
+    console.log('[loadBeats] Fetching:', url);
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const r = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      setDebug(`[FETCH] Status: ${r.status} ${r.statusText}`);
+      console.log('[loadBeats] Response status:', r.status);
+
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      }
+
+      const text = await r.text();
+      console.log('[loadBeats] Raw response text:', text);
+
+      let d;
+      try {
+        d = JSON.parse(text);
+      } catch (parseErr) {
+        setDebug(`[ERROR] JSON inválido: ${text.substring(0, 100)}`, true);
+        console.error('[loadBeats] JSON parse error:', parseErr);
+        throw parseErr;
+      }
+
+      console.log('[loadBeats] Parsed data:', d);
+
+      if (d.ok) {
+        beatsList = d.data || [];
+        setDebug(`[OK] ${beatsList.length} beats. Debug: ${JSON.stringify(d.debug)}`);
+        console.log('[loadBeats] beatsList length:', beatsList.length);
+        if (beatsList.length) console.table(beatsList);
+      } else {
+        setDebug(`[ERROR] API ok=false: ${JSON.stringify(d)}`, true);
+        beatsList = [];
+      }
+    } catch (e) {
+      console.error('[loadBeats] Excepción:', e);
+      setDebug(`[ERROR] ${e.name}: ${e.message}`, true);
+      beatsList = [];
+    }
+
+    renderRelated();
+    if (beatsList.length) {
+      await selectBeat(beatsList[0].id);
+      enableControls(true);
+      setDebug(`[OK] Mostrando ${beatsList.length} beats`);
+    } else {
+      document.getElementById('track-title').textContent = '[NO BEATS]';
+      enableControls(false);
+      setDebug('[WARN] 0 beats para mostrar');
+    }
+  }
+
+  function enableControls(en) {
+    [playBtn, buyBtn, likeBtn, shareBtn].forEach(b => b.disabled = !en);
+  }
+
+  async function selectBeat(id) {
+    try {
+      const r = await fetch(RAKON_WEBAPP_URL + '?app=api&action=getBeat&id=' + id);
+      const d = await r.json();
+      currentBeat = d.ok ? d.data : beatsList.find(b => b.id === id);
+    } catch(e) { currentBeat = beatsList.find(b => b.id === id); }
+    if (!currentBeat) return;
+    document.getElementById('track-title').textContent = currentBeat.titulo || 'UNKNOWN';
+    document.getElementById('track-bpm').textContent = (currentBeat.bpm||'??')+' BPM';
+    document.getElementById('track-genre').textContent = currentBeat.genero || '';
+    document.getElementById('track-date').textContent = currentBeat.fecha || '';
+    document.getElementById('detailBpm').textContent = currentBeat.bpm||'--';
+    document.getElementById('detailGenre').textContent = currentBeat.genero||'--';
+    document.getElementById('detailTags').textContent = currentBeat.tags||'--';
+    document.getElementById('detailLikes').textContent = currentBeat.likes||'0';
+    renderLicenses(currentBeat);
+    if (currentBeat.url_audio) {
+      audioPlayer.src = currentBeat.url_audio;
+      audioPlayer.load();
+    } else audioPlayer.src = '';
+  }
+
+  function renderLicenses(beat) {
+    const cont = document.getElementById('licenseOptions');
+    const mp3 = parseFloat(beat.precio_base_mp3||29.99), wav = parseFloat(beat.precio_base_wav||49.99), excl = parseFloat(beat.precio_exclusive||299.99);
+    const opts = [
+      {id:'mp3', name:'MP3 LEASE', price:mp3}, {id:'wav', name:'WAV LEASE', price:wav}, {id:'excl', name:'EXCLUSIVE', price:excl}
+    ];
+    cont.innerHTML = opts.map(o=>`<div class="license-option" data-id="${esc(o.id)}" data-price="${o.price}">
+      <div style="display:flex; justify-content:space-between;"><span>${esc(o.name)}</span><span>$${o.price.toFixed(2)}</span></div>
+    </div>`).join('');
+    const first = cont.querySelector('.license-option');
+    if(first) { first.classList.add('selected'); selectedLicense = {id: first.dataset.id, price: first.dataset.price}; }
+    cont.querySelectorAll('.license-option').forEach(el => el.addEventListener('click', ()=>{
+      cont.querySelectorAll('.license-option').forEach(e=>e.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedLicense = {id: el.dataset.id, price: el.dataset.price};
+    }));
+  }
+
+  function renderRelated() {
+    const grid = document.getElementById('relatedTracksContainer');
+    const newGrid = grid.cloneNode(false);
+    grid.parentNode.replaceChild(newGrid, grid);
+    newGrid.id = 'relatedTracksContainer';
+
+    if (!beatsList.length) {
+      newGrid.innerHTML = '<div class="empty-state">[NO SIGNAL]</div>';
+      return;
+    }
+
+    newGrid.innerHTML = beatsList.map(b => {
+      const cleanId = String(b.id).trim();
+      return `<div class="track-thumb" data-id="${esc(cleanId)}">
+        <div style="font-weight:bold;">${esc(b.titulo)}</div>
+        <div style="display:flex; justify-content:space-between; color:#aaa;">
+          <span>${esc(b.bpm)}BPM</span>
+          <span>${esc(b.genero)}</span>
+        </div>
+        <div style="margin-top:6px;">$${parseFloat(b.precio_base_mp3||0).toFixed(2)}</div>
+      </div>`;
+    }).join('');
+
+    newGrid.addEventListener('click', (e) => {
+      const thumb = e.target.closest('.track-thumb');
+      if (thumb && thumb.dataset.id) {
+        selectBeat(thumb.dataset.id);
+      }
+    });
+  }
+
+  function setupListeners() {
+    playBtn.addEventListener('click', ()=>{
+      if(!audioPlayer.src) return;
+      if(isPlaying) { audioPlayer.pause(); playBtn.textContent='▶'; }
+      else { audioPlayer.play(); playBtn.textContent='⏸'; }
+      isPlaying = !isPlaying;
+    });
+    audioPlayer.addEventListener('timeupdate', ()=>{
+      if(audioPlayer.duration) {
+        const p = audioPlayer.currentTime/audioPlayer.duration*100;
+        document.getElementById('progressBar').style.width = p+'%';
+        document.getElementById('timeDisplay').textContent = formatTime(audioPlayer.currentTime)+' / '+formatTime(audioPlayer.duration);
+      }
+    });
+    audioPlayer.addEventListener('loadedmetadata', ()=>{
+      document.getElementById('timeDisplay').textContent = formatTime(audioPlayer.duration);
+    });
+    audioPlayer.addEventListener('error', ()=> setDebug('[AUDIO ERROR]', true));
+    document.getElementById('progressContainer').addEventListener('click', (e)=>{
+      const rect = e.currentTarget.getBoundingClientRect();
+      const p = (e.clientX - rect.left)/rect.width;
+      if(audioPlayer.duration) audioPlayer.currentTime = p*audioPlayer.duration;
+    });
+    buyBtn.addEventListener('click', ()=>{
+      if(!currentBeat) return;
+      const lic = selectedLicense?.id||'mp3', price = selectedLicense?.price||currentBeat.precio_base_mp3;
+      const msg = `[PURCHASE] ${currentBeat.titulo} | ${lic.toUpperCase()} | $${price}`;
+      window.open(`https://wa.me/${window.RAKON_CONFIG?.phone||'573001234567'}?text=${encodeURIComponent(msg)}`,'_blank');
+    });
+    likeBtn.addEventListener('click', async ()=>{
+      if(!currentBeat) return;
+      await fetch(RAKON_WEBAPP_URL+'?app=api&action=likeBeat&id='+currentBeat.id);
+      const el = document.getElementById('detailLikes'); el.textContent = (parseInt(el.textContent)+1).toString();
+    });
+    shareBtn.addEventListener('click', ()=>{
+      if(!currentBeat) return;
+      if(navigator.share) navigator.share({title:'DOOMCER', text:currentBeat.titulo});
+      else prompt('Copy URL:', window.location.href);
+    });
+    debugRefreshBtn.addEventListener('click', () => {
+      loadBeats();
+    });
+  }
+
+  function formatTime(s) {
+    if(isNaN(s)) return '00:00';
+    const m=Math.floor(s/60), sec=Math.floor(s%60);
+    return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+  }
+
+  window.RAKON_CONFIG = { phone: '573001234567' };
+  window.addEventListener('beforeunload', ()=>{ if(animationFrame) cancelAnimationFrame(animationFrame); });
+  setupListeners();
+</script>
+</body>
+</html>
