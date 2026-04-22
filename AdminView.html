@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html style="height:100%; margin:0; padding:0; background:#000;">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>DOOMCER // ADMIN</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; width:100%; height:100%; background:#000; color:#ddd; font-family:'Courier New', monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; }
+    body { display:flex; flex-direction:column; padding:16px; overflow-y:auto; }
+    .admin-card { background:#0a0a0a; border:1px solid #444; padding:18px; margin-bottom:20px; }
+    h2 { color:#fff; border-left:4px solid #fff; padding-left:10px; font-weight:400; }
+    label { display:block; margin-bottom:4px; color:#aaa; }
+    input, select, textarea { width:100%; padding:10px; margin-bottom:14px; background:#111; border:1px solid #555; color:#fff; font-family:inherit; font-size:12px; }
+    .btn { background:transparent; border:1px solid #888; color:#ddd; padding:10px 16px; font-weight:bold; text-transform:uppercase; letter-spacing:2px; cursor:pointer; transition:0.05s; width:100%; }
+    .btn:hover { background:#222; border-color:#fff; color:#fff; animation:textScramble 0.1s steps(2) 3; }
+    @keyframes textScramble { 0%{opacity:1} 50%{opacity:0.5;letter-spacing:3px} }
+    .btn-danger { border-color:#555; color:#aaa; }
+    .btn-danger:hover { background:#2a2a2a; border-color:#fff; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:8px 4px; border-bottom:1px solid #444; }
+    .action-icon { cursor:pointer; margin:0 5px; color:#aaa; }
+    .hidden { display:none !important; }
+    .file-upload-wrapper { position:relative; margin-bottom:16px; }
+    .file-upload-wrapper input[type="file"] { opacity:0; position:absolute; top:0; left:0; width:100%; height:100%; cursor:pointer; }
+    .file-upload-button { background:#111; border:1px dashed #555; padding:12px; text-align:center; color:#aaa; }
+    .progress-bar-container { height:4px; background:#222; margin:8px 0; }
+    .progress-bar-fill { height:100%; width:0%; background:#fff; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div id="loginContainer" class="admin-card" style="max-width:350px; margin:10vh auto;">
+  <h2>[ AUTH ]</h2>
+  <input type="password" id="passwordInput" placeholder="CODE" autocomplete="off">
+  <button id="loginBtn" class="btn">▶ DECRYPT</button>
+</div>
+
+<div id="adminContainer" class="hidden">
+  <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+    <h1 style="color:#fff;">DOOMCER ADMIN</h1>
+    <button id="logoutBtn" class="btn" style="width:auto;">LOGOUT</button>
+  </div>
+  
+  <div class="admin-card">
+    <h2>[ BEAT EDITOR ]</h2>
+    <form id="beatForm">
+      <input type="hidden" id="beatId">
+      <label>TITLE</label><input type="text" id="titulo" placeholder="NIGHTFALL_1984" required>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div><label>GENRE</label><input type="text" id="genero" placeholder="SYNTHWAVE"></div>
+        <div><label>BPM</label><input type="number" id="bpm" placeholder="140"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div><label>DATE</label><input type="date" id="fecha"></div>
+        <div><label>TAGS</label><input type="text" id="tags" placeholder="dark,retro"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+        <div><label>MP3 $</label><input type="number" step="0.01" id="precioMp3" placeholder="29.99"></div>
+        <div><label>WAV $</label><input type="number" step="0.01" id="precioWav" placeholder="49.99"></div>
+        <div><label>EXCL $</label><input type="number" step="0.01" id="precioExcl" placeholder="299.99"></div>
+      </div>
+      <label>AUDIO FILE (max 9MB)</label>
+      <div class="file-upload-wrapper">
+        <div class="file-upload-button" id="fileLabel">SELECT MP3/WAV</div>
+        <input type="file" id="audioFileInput" accept="audio/mpeg,audio/wav,audio/mp3">
+      </div>
+      <div id="uploadProgress" class="progress-bar-container hidden"><div id="progressFill" class="progress-bar-fill"></div></div>
+      <input type="hidden" id="audioUrl">
+      <label>AUDIO URL (manual)</label>
+      <input type="text" id="audioUrlManual" placeholder="https://drive.google.com/uc?export=download&id=...">
+      <div id="audioStatus" style="font-size:11px; color:#aaa; margin-bottom:10px;"></div>
+      <label>COVER URL</label><input type="text" id="urlImagen" placeholder="https://...">
+      <div style="display:flex; gap:10px; margin-top:20px;">
+        <button type="submit" class="btn">▶ SAVE BEAT</button>
+        <button type="button" id="cancelEditBtn" class="btn btn-danger">CANCEL</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="admin-card">
+    <h2>[ EXISTING_BEATS ]</h2>
+    <table><thead><tr><th>ID</th><th>TITLE</th><th>GENRE</th><th>PRICE</th><th>ACTIONS</th></tr></thead>
+    <tbody id="beatsTableBody"></tbody></table>
+    <button id="refreshListBtn" class="btn" style="margin-top:16px;">⟳ REFRESH</button>
+  </div>
+</div>
+
+<script>
+  const WEBAPP_URL = '<?= webAppUrl ?>';
+  let sessionToken = sessionStorage.getItem('adminToken') || '';
+  const esc = (t) => String(t||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  document.getElementById('loginBtn').addEventListener('click', async ()=>{
+    const pwd = document.getElementById('passwordInput').value;
+    if(!pwd) return;
+    const r = await fetch(WEBAPP_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'adminLogin', password:pwd})});
+    const d = await r.json();
+    if(d.ok) { sessionToken = d.token; sessionStorage.setItem('adminToken', sessionToken); showAdmin(); }
+    else Swal.fire({icon:'error', title:'[ACCESS DENIED]', background:'#000', color:'#fff'});
+  });
+  function showAdmin(){ document.getElementById('loginContainer').classList.add('hidden'); document.getElementById('adminContainer').classList.remove('hidden'); loadBeats(); }
+  if(sessionToken) showAdmin();
+  document.getElementById('logoutBtn').addEventListener('click', ()=>{ sessionStorage.removeItem('adminToken'); location.reload(); });
+
+  async function loadBeats(){
+    const r = await fetch(WEBAPP_URL+'?app=api&action=getBeats');
+    const d = await r.json();
+    const tbody = document.getElementById('beatsTableBody');
+    if(d.ok && d.data.length) {
+      tbody.innerHTML = d.data.map(b=>`<tr><td>${esc(b.id)}</td><td>${esc(b.titulo)}</td><td>${esc(b.genero)}</td><td>$${parseFloat(b.precio_base_mp3||0).toFixed(2)}</td><td><span class="action-icon" onclick="editBeat('${esc(b.id)}')">✎</span><span class="action-icon" onclick="deleteBeat('${esc(b.id)}')" style="color:#aaa;">🗑</span></td></tr>`).join('');
+    } else tbody.innerHTML = '<tr><td colspan="5" style="color:#555;">[NO BEATS]</td></tr>';
+  }
+  window.editBeat = async (id)=>{
+    const r = await fetch(WEBAPP_URL+'?app=api&action=getBeat&id='+id);
+    const d = await r.json(); if(!d.ok) return;
+    const b = d.data;
+    document.getElementById('beatId').value = b.id;
+    document.getElementById('titulo').value = b.titulo||'';
+    document.getElementById('genero').value = b.genero||'';
+    document.getElementById('bpm').value = b.bpm||'';
+    document.getElementById('fecha').value = b.fecha||'';
+    document.getElementById('tags').value = b.tags||'';
+    document.getElementById('precioMp3').value = b.precio_base_mp3||'';
+    document.getElementById('precioWav').value = b.precio_base_wav||'';
+    document.getElementById('precioExcl').value = b.precio_exclusive||'';
+    document.getElementById('audioUrl').value = b.url_audio||'';
+    document.getElementById('audioUrlManual').value = b.url_audio||'';
+    document.getElementById('urlImagen').value = b.url_imagen||'';
+    document.getElementById('audioStatus').innerHTML = b.url_audio?'✅ Audio':'';
+  };
+  window.deleteBeat = async (id)=>{
+    if(!(await Swal.fire({title:'[CONFIRM]', icon:'warning', showCancelButton:true, confirmButtonColor:'#fff', background:'#000', color:'#fff'})).isConfirmed) return;
+    await fetch(WEBAPP_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'adminDeleteBeat', token:sessionToken, beatId:id})});
+    loadBeats();
+  };
+
+  document.getElementById('audioFileInput').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    if(file.size > 9*1024*1024) { Swal.fire({icon:'error', title:'[TOO LARGE]', background:'#000'}); return; }
+    document.getElementById('fileLabel').textContent = file.name;
+    const progDiv = document.getElementById('uploadProgress'); progDiv.classList.remove('hidden');
+    const fill = document.getElementById('progressFill');
+    const reader = new FileReader();
+    reader.onload = async (ev)=>{
+      const base64 = ev.target.result.split(',')[1];
+      let progress = 0;
+      const interval = setInterval(()=>{ progress = Math.min(progress+10,90); fill.style.width = progress+'%'; },100);
+      const r = await fetch(WEBAPP_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'adminUploadAudio', token:sessionToken, filename:file.name, mimeType:file.type, data:base64})});
+      clearInterval(interval); fill.style.width = '100%';
+      const d = await r.json();
+      if(d.ok) {
+        document.getElementById('audioUrl').value = d.url;
+        document.getElementById('audioUrlManual').value = d.url;
+        document.getElementById('audioStatus').innerHTML = `✅ ${esc(d.fileName)}`;
+        Swal.fire({icon:'success', title:'[UPLOADED]', background:'#000'});
+      } else Swal.fire({icon:'error', title:'[FAILED]', text:d.error, background:'#000'});
+      progDiv.classList.add('hidden'); fill.style.width = '0%';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('beatForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const beat = {
+      id: document.getElementById('beatId').value || null,
+      titulo: document.getElementById('titulo').value,
+      genero: document.getElementById('genero').value,
+      bpm: document.getElementById('bpm').value,
+      fecha: document.getElementById('fecha').value,
+      tags: document.getElementById('tags').value,
+      precio_base_mp3: document.getElementById('precioMp3').value,
+      precio_base_wav: document.getElementById('precioWav').value,
+      precio_exclusive: document.getElementById('precioExcl').value,
+      url_audio: document.getElementById('audioUrlManual').value || document.getElementById('audioUrl').value,
+      url_imagen: document.getElementById('urlImagen').value,
+      activo: 'true'   // <--- CORRECCIÓN: 'true' en minúsculas
+    };
+    const r = await fetch(WEBAPP_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'adminSaveBeat', token:sessionToken, beat})});
+    const d = await r.json();
+    if(d.ok) { Swal.fire({icon:'success', title:'[SAVED]', background:'#000'}); resetForm(); loadBeats(); }
+    else Swal.fire({icon:'error', title:'[ERROR]', background:'#000'});
+  });
+
+  function resetForm(){ document.getElementById('beatId').value=''; document.getElementById('beatForm').reset(); document.getElementById('audioStatus').innerHTML=''; document.getElementById('fileLabel').textContent='SELECT MP3/WAV'; }
+  document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
+  document.getElementById('refreshListBtn').addEventListener('click', loadBeats);
+</script>
+</body>
+</html>
